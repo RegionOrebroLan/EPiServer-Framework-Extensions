@@ -1,0 +1,9 @@
+<Project>
+	<PropertyGroup>
+		<AssemblyName>RegionOrebroLan.EPiServer.Framework.IntegrationTests</AssemblyName>
+		<AssemblyOriginatorKeyFile>$(SolutionDir).Global\Signing\StrongName.Development.snk</AssemblyOriginatorKeyFile>
+		<CodeAnalysisRuleSet>CodeAnalysis\Rules.ruleset</CodeAnalysisRuleSet>
+		<RootNamespace>RegionOrebroLan.EPiServer.IntegrationTests</RootNamespace>
+		<SignAssembly>false</SignAssembly>
+	</PropertyGroup>
+</Project>
