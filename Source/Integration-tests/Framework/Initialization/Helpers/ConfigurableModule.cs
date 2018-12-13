@@ -1,4 +1,5 @@
 ﻿using System;
+using EPiServer.Async;
 using EPiServer.Framework;
 using EPiServer.Framework.Initialization;
 using EPiServer.Security;
@@ -11,6 +12,12 @@ namespace RegionOrebroLan.EPiServer.IntegrationTests.Framework.Initialization.He
 	[ModuleDependency(typeof(InitializableModule))]
 	public class ConfigurableModule : IConfigurableModule
 	{
+		#region Properties
+
+		public static bool RegisterTaskMonitor { get; set; } = true;
+
+		#endregion
+
 		#region Methods
 
 		public virtual void ConfigureContainer(ServiceConfigurationContext context)
@@ -19,6 +26,9 @@ namespace RegionOrebroLan.EPiServer.IntegrationTests.Framework.Initialization.He
 				throw new ArgumentNullException(nameof(context));
 
 			context.Services.AddSingleton(Mock.Of<IVirtualRoleReplication>());
+
+			if(RegisterTaskMonitor)
+				context.Services.AddSingleton(Mock.Of<TaskMonitor>());
 		}
 
 		public virtual void Initialize(InitializationEngine context) { }

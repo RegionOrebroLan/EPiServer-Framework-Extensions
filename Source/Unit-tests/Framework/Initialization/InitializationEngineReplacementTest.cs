@@ -57,16 +57,30 @@ namespace RegionOrebroLan.EPiServer.UnitTests.Framework.Initialization
 		}
 
 		[TestMethod]
-		public void InitializationState_Set_ShouldSetTheInitializationStateOfTheOriginalInitializationEngine()
+		public void InitializationState_Get_ShouldReturnPreInitializeByDefault()
 		{
 			var initializationEngineReplacement = this.CreateInitializationEngineReplacement();
 
 			Assert.AreEqual(InitializationState.PreInitialize, initializationEngineReplacement.InitializationState);
-			Assert.AreEqual(InitializationState.PreInitialize, initializationEngineReplacement.OriginalInitializationEngine.InitializationState);
+		}
+
+		[TestMethod]
+		public void InitializationState_Set_ShouldSetTheInitializationState()
+		{
+			var initializationEngineReplacement = this.CreateInitializationEngineReplacement();
 
 			initializationEngineReplacement.InitializationState = InitializationState.Uninitialized;
 
 			Assert.AreEqual(InitializationState.Uninitialized, initializationEngineReplacement.InitializationState);
+		}
+
+		[TestMethod]
+		public void InitializationState_Set_ShouldSetTheInitializationStateOfTheOriginalInitializationEngine()
+		{
+			var initializationEngineReplacement = this.CreateInitializationEngineReplacement();
+
+			initializationEngineReplacement.InitializationState = InitializationState.Uninitialized;
+
 			Assert.AreEqual(InitializationState.Uninitialized, initializationEngineReplacement.OriginalInitializationEngine.InitializationState);
 		}
 
@@ -81,6 +95,14 @@ namespace RegionOrebroLan.EPiServer.UnitTests.Framework.Initialization
 
 			Assert.IsNotNull(initializationEngineReplacement.Modules);
 			Assert.IsFalse(initializationEngineReplacement.Modules.Any());
+		}
+
+		[TestMethod]
+		public void OriginalInitializationEngine_InitializationState_Get_ShouldReturnPreInitializeByDefault()
+		{
+			var initializationEngineReplacement = this.CreateInitializationEngineReplacement();
+
+			Assert.AreEqual(InitializationState.PreInitialize, initializationEngineReplacement.OriginalInitializationEngine.InitializationState);
 		}
 
 		#endregion

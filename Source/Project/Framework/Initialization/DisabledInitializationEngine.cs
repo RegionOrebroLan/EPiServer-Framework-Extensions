@@ -69,6 +69,11 @@ namespace RegionOrebroLan.EPiServer.Framework.Initialization
 			throw new InvalidOperationException(this.ExceptionMessage);
 		}
 
+		public virtual void SetInitializationState(InitializationState initializationState)
+		{
+			this.InitializationState = initializationState;
+		}
+
 		public virtual void SetModules(IEnumerable<IInitializableModule> modules)
 		{
 			this.InitializableModules = modules;

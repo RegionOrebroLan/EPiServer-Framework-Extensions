@@ -214,7 +214,7 @@ namespace RegionOrebroLan.EPiServer.Framework.Initialization
 		public virtual InitializationState InitializationState
 		{
 			get => this.OriginalInitializationEngine.InitializationState;
-			protected internal set => this.InitializationEngineInitializationStateField.SetValue(this.OriginalInitializationEngine, value);
+			protected internal set => this.OriginalInitializationEngine.SetInitializationState(value);
 		}
 
 		protected internal virtual ICollection<IInitializableModule> InitializedModules
@@ -232,12 +232,6 @@ namespace RegionOrebroLan.EPiServer.Framework.Initialization
 
 		protected internal virtual ILog Logger { get; }
 
-		//public virtual IEnumerable<IInitializableModule> Modules
-		//{
-		//	get => this._modules ?? (this._modules = this.OriginalInitializationEngine.Modules = this.GetInitializableModules());
-		//	set => this._modules = this.OriginalInitializationEngine.Modules = value;
-		//}
-
 		public virtual IEnumerable<IInitializableModule> Modules
 		{
 			get
@@ -249,7 +243,6 @@ namespace RegionOrebroLan.EPiServer.Framework.Initialization
 
 					this._modules = modules;
 					this.OriginalInitializationEngine.SetModules(modules);
-					//=> this._modules ?? (this._modules = this.OriginalInitializationEngine.Modules = this.GetInitializableModules());
 				}
 				// ReSharper restore InvertIf
 
@@ -273,7 +266,14 @@ namespace RegionOrebroLan.EPiServer.Framework.Initialization
 				{
 					var serviceConfigurationContext = this.InitializationEngineGetServiceConfigurationContextFunction.Invoke();
 
-					this._serviceConfigurationContext = serviceConfigurationContext ?? throw new InvalidOperationException("The service-configuration-context can not be null.");
+					if(serviceConfigurationContext == null)
+						throw new InvalidOperationException("The service-configuration-context can not be null.");
+
+					serviceConfigurationContext.Services.RemoveAll<IInitializationEngine>();
+
+					serviceConfigurationContext.Services.AddSingleton<IInitializationEngine>(this);
+
+					this._serviceConfigurationContext = serviceConfigurationContext;
 				}
 				// ReSharper restore InvertIf
 
@@ -418,7 +418,7 @@ namespace RegionOrebroLan.EPiServer.Framework.Initialization
 						this.InitializationState = InitializationState.Initializing;
 						break;
 					case InitializationState.InitializeComplete:
-						this.OnInitializationComplete(this, EventArgs.Empty);
+						this.OnInitializationComplete();
 						this.InitializationState = InitializationState.Initialized;
 						break;
 					case InitializationState.Initialized:
@@ -704,9 +704,14 @@ namespace RegionOrebroLan.EPiServer.Framework.Initialization
 			return false;
 		}
 
+		protected internal virtual void OnInitializationComplete()
+		{
+			this.OriginalInitializationEngine.OnInitComplete();
+		}
+
 		protected internal virtual void OnInitializationComplete(object sender, EventArgs e)
 		{
-			this.InitComplete?.Invoke(sender, e);
+			this.InitComplete?.Invoke(this, e);
 		}
 
 		protected internal virtual void PopulateSortedInitializableModuleTypes(IDictionary<Type, IList<Type>> initializableModuleTypeMap, IList<Type> sortedInitializableModuleTypes)

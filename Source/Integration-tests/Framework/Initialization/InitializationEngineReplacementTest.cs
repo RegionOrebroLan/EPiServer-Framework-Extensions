@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using EPiServer.Framework;
 using EPiServer.Framework.Initialization;
 using EPiServer.Framework.Localization;
@@ -39,33 +41,121 @@ namespace RegionOrebroLan.EPiServer.IntegrationTests.Framework.Initialization
 		}
 
 		[TestMethod]
-		public void Initialize_Test()
+		public void InitializationState_AfterInitialize_ShouldReturnInitialized()
 		{
 			var initializationEngineReplacement = this.CreateInitializationEngineReplacement();
-
-			Assert.AreEqual(InitializationState.PreInitialize, initializationEngineReplacement.InitializationState);
-			Assert.AreEqual(InitializationState.PreInitialize, initializationEngineReplacement.OriginalInitializationEngine.InitializationState);
-
-			Assert.AreEqual(0, initializationEngineReplacement.OriginalInitializationEngine.Modules.Count());
-
-			Assert.AreEqual(7, initializationEngineReplacement.Modules.Count());
-			Assert.AreEqual(7, initializationEngineReplacement.OriginalInitializationEngine.Modules.Count());
 
 			initializationEngineReplacement.Initialize();
 
 			Assert.AreEqual(InitializationState.Initialized, initializationEngineReplacement.InitializationState);
 			Assert.AreEqual(InitializationState.Initialized, initializationEngineReplacement.OriginalInitializationEngine.InitializationState);
+		}
 
-			Assert.AreEqual(7, initializationEngineReplacement.Modules.Count());
-			Assert.AreEqual(7, initializationEngineReplacement.OriginalInitializationEngine.Modules.Count());
+		[TestMethod]
+		public void Initialize_WhenComplete_ShouldHaveTriggeredInitComplete()
+		{
+			// First test
+			var initializationCompleteCallsCount = 0;
+			var initializationEngineReplacement = this.CreateInitializationEngineReplacement();
+			initializationEngineReplacement.InitComplete += (sender, e) => initializationCompleteCallsCount++;
+			var initializableModule = (InitializableModule) initializationEngineReplacement.Modules.ElementAt(1);
 
-			Assert.AreEqual("EPiServer.Async.Internal.ShutdownRegistrationModule", initializationEngineReplacement.Modules.ElementAt(0).GetType().FullName);
-			Assert.AreEqual(typeof(InitializableModule), initializationEngineReplacement.Modules.ElementAt(1).GetType());
-			Assert.AreEqual(typeof(ProviderBasedLocalizationService), initializationEngineReplacement.Modules.ElementAt(2).GetType());
-			Assert.AreEqual(typeof(ServiceContainerInitialization), initializationEngineReplacement.Modules.ElementAt(3).GetType());
-			Assert.AreEqual(typeof(ConfigurableModule), initializationEngineReplacement.Modules.ElementAt(4).GetType());
-			Assert.AreEqual(typeof(FrameworkInitialization), initializationEngineReplacement.Modules.ElementAt(5).GetType());
-			Assert.AreEqual(typeof(ValidationService), initializationEngineReplacement.Modules.ElementAt(6).GetType());
+			Assert.AreEqual(0, initializationCompleteCallsCount);
+			Assert.AreEqual(0, initializableModule.InitializationCompleteCallsCount);
+
+			initializationEngineReplacement.Initialize();
+
+			Assert.AreEqual(1, initializationCompleteCallsCount);
+			Assert.AreEqual(1, initializableModule.InitializationCompleteCallsCount);
+
+			// Second test
+			var defaultRegisterTaskMonitor = ConfigurableModule.RegisterTaskMonitor;
+			var failed = false;
+			initializationEngineReplacement = this.CreateInitializationEngineReplacement();
+			ConfigurableModule.RegisterTaskMonitor = false;
+
+			try
+			{
+				initializationEngineReplacement.Initialize();
+				failed = true;
+			}
+			catch(TargetInvocationException targetInvocationException)
+			{
+				if(!(targetInvocationException.InnerException is StructureMapBuildPlanException structureMapBuildPlanException))
+				{
+					failed = true;
+				}
+				else
+				{
+					const string expectedExceptionMessageStart = "Unable to create a build plan for concrete type ServiceAccessor<TaskInformationStorage>";
+					var message = structureMapBuildPlanException.Message;
+
+					if(!message.StartsWith(expectedExceptionMessageStart, StringComparison.OrdinalIgnoreCase))
+						failed = false;
+				}
+			}
+
+			ConfigurableModule.RegisterTaskMonitor = defaultRegisterTaskMonitor;
+
+			if(failed)
+				Assert.Fail("The second initialization should have thrown an exception.");
+		}
+
+		[TestMethod]
+		public void Initialize_WhenComplete_TheServiceLocatorShouldReturnAnInstanceOfInitializationEngineReplacementWhenAskingForIInitializationEngine()
+		{
+			this.CreateInitializationEngineReplacement().Initialize();
+
+			Assert.AreEqual(1, ServiceLocator.Current.GetAllInstances<IInitializationEngine>().Count());
+
+			Assert.IsTrue(ServiceLocator.Current.GetInstance<IInitializationEngine>() is InitializationEngineReplacement);
+		}
+
+		[TestMethod]
+		public void Modules_IfInitialized_ShouldBeOrderedCorrectly()
+		{
+			var initializationEngineReplacement = this.CreateInitializationEngineReplacement();
+
+			initializationEngineReplacement.Initialize();
+
+			this.ModulesCountAndOrderShouldBeCorrect(initializationEngineReplacement.Modules);
+		}
+
+		[TestMethod]
+		public void Modules_IfNotInitialized_ShouldBeOrderedCorrectly()
+		{
+			var initializationEngineReplacement = this.CreateInitializationEngineReplacement();
+
+			this.ModulesCountAndOrderShouldBeCorrect(initializationEngineReplacement.Modules);
+		}
+
+		[TestMethod]
+		public void Modules_Items_AreTheSameInstanceAsInTheModulesOfTheOriginalInitializationEngine()
+		{
+			var initializationEngineReplacement = this.CreateInitializationEngineReplacement();
+
+			var initializableModule = (InitializableModule) initializationEngineReplacement.Modules.ElementAt(1);
+			var originalInitializableModule = (InitializableModule) initializationEngineReplacement.OriginalInitializationEngine.GetDependencySortedModules().ElementAt(3);
+
+			Assert.IsTrue(ReferenceEquals(initializableModule, originalInitializableModule));
+		}
+
+		protected internal virtual void ModulesCountAndOrderShouldBeCorrect(IEnumerable<IInitializableModule> modules)
+		{
+			if(modules == null)
+				throw new ArgumentNullException(nameof(modules));
+
+			modules = modules.ToArray();
+
+			Assert.AreEqual(7, modules.Count());
+
+			Assert.AreEqual("EPiServer.Async.Internal.ShutdownRegistrationModule", modules.ElementAt(0).GetType().FullName);
+			Assert.AreEqual(typeof(InitializableModule), modules.ElementAt(1).GetType());
+			Assert.AreEqual(typeof(ProviderBasedLocalizationService), modules.ElementAt(2).GetType());
+			Assert.AreEqual(typeof(ServiceContainerInitialization), modules.ElementAt(3).GetType());
+			Assert.AreEqual(typeof(ConfigurableModule), modules.ElementAt(4).GetType());
+			Assert.AreEqual(typeof(FrameworkInitialization), modules.ElementAt(5).GetType());
+			Assert.AreEqual(typeof(ValidationService), modules.ElementAt(6).GetType());
 		}
 
 		[TestMethod]
